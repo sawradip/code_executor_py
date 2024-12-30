@@ -3,12 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "code_executor"
-version = "0.1.0"
+name = "code-executor-py"
+version = "0.0.1"
 authors = [
-  { name="Sawradip Saha", email="sawradip0@gmail.com" },
+  { name = "Sawradip Saha", email = "sawradip0@gmail.com" },
 ]
-description = "A short description of your package"
+
+description = "A module for dynamically (llm)generated code execution locally, in separate venv or even separate sandbox container."
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -16,10 +17,10 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = [
-    # List your dependencies here
-]
+# Start of Selection
+dependencies = ["langchain_core>=0.3"]
+# End of Selection
 
 [project.urls]
-"Homepage" = "https://github.com/username/your-package-name"
-"Bug Tracker" = "https://github.com/username/your-package-name/issues"
+homepage = "https://github.com/sawradip/code-executor"
+bug_tracker = "https://github.com/sawradip/code-executor/issues"
