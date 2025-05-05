@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "code-executor-py"
-version = "0.0.1"
+version = "0.2.0"
 authors = [
   { name = "Sawradip Saha", email = "sawradip0@gmail.com" },
 ]
 
-description = "A module for dynamically (llm)generated code execution locally, in separate venv or even separate sandbox container."
+description = "A module for python code execution locally, in separate venv or even separate sandbox container."
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -18,9 +18,14 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 # Start of Selection
-dependencies = ["langchain_core>=0.3"]
+dependencies = [
+  # "langchain_core>=0.3",
+  "pydantic>=2.0.0",
+  "fastapi>=0.115.12",
+  "uvicorn>=0.34.2"
+]
 # End of Selection
 
 [project.urls]
-homepage = "https://github.com/sawradip/code-executor"
-bug_tracker = "https://github.com/sawradip/code-executor/issues"
+homepage = "https://github.com/sawradip/code_executor_py"
+bug_tracker = "https://github.com/sawradip/code_executor_py/issues"

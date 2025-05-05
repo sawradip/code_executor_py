@@ -1,5 +1,3 @@
-
-
 import os
 import re
 import ast
@@ -9,8 +7,9 @@ import tempfile
 import subprocess
 import contextlib
 from pathlib import Path
-from typing import Any, Dict, Optional, Union, List
+from typing import Any, Optional, Union, List
 from langchain_core.messages import HumanMessage
+
 
 class VenvExecutor:
     PACKAGE_MAPPING = {
@@ -25,14 +24,16 @@ class VenvExecutor:
     def __init__(self,
                  llm=None,
                  debug_mode=False,
-                 venv_path: Optional[Union[str, Path]] = None, 
+                 venv_path: Optional[Union[str, Path]] = None,
                  base_packages: Optional[list[str]] = None):
         self.venv_dir = Path(venv_path or './.venv')
         self.base_packages = base_packages or ['numpy', 'pandas']
         self.llm = llm
         self.debug_mode = debug_mode
-        
-        self.python_path = self.venv_dir / ('Scripts' if os.name == 'nt' else 'bin') / ('python' + ('.exe' if os.name == 'nt' else ''))
+
+        self.python_path = self.venv_dir / (
+            'Scripts' if os.name == 'nt' else 'bin'
+            ) / ('python' + ('.exe' if os.name == 'nt' else ''))
 
         if not self.venv_dir.exists():
             self._create_venv()
@@ -40,7 +41,7 @@ class VenvExecutor:
     def _create_venv(self):
         """Create virtual environment and install base packages."""
         venv.create(self.venv_dir, with_pip=True)
-        
+
         # Ensure pip is installed
         subprocess.run(
             [str(self.python_path), '-m', 'ensurepip', '--upgrade'],
@@ -97,16 +98,16 @@ class VenvExecutor:
         if not function_name:
             # Find the function that isn't called by others (except in __main__)
             tree = ast.parse(function_code)
-            function_nodes = {node.name: node for node in tree.body 
-                            if isinstance(node, ast.FunctionDef)}
-            
+            function_nodes = {node.name: node for node in tree.body
+                                if isinstance(node, ast.FunctionDef)}
+
             # Collect function calls within function bodies only
             function_calls = set()
             for func_node in function_nodes.values():
                 for node in ast.walk(func_node):
                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                         function_calls.add(node.func.id)
-            
+
             uncalled = [name for name in function_nodes if name not in function_calls]
             if not uncalled:
                 raise ValueError("Could not determine top-level function")
@@ -123,7 +124,7 @@ class VenvExecutor:
                 if self.debug_mode
                 else tempfile.TemporaryDirectory()
             ) as temp_dir:
-            # with tempfile.TemporaryDirectory() as temp_dir:
+                # with tempfile.TemporaryDirectory() as temp_dir:
                 temp_dir = Path(temp_dir)
                 input_path = temp_dir / 'input.pkl'
                 output_path = temp_dir / 'output.pkl'
@@ -148,7 +149,7 @@ class VenvExecutor:
 
                 # Add proper indentation
                 indented_imports = ['    ' + imp for imp in imports]
-                indented_functions = ['    ' + line for func in functions 
+                indented_functions = ['    ' + line for func in functions
                                     for line in func.split('\n')]
 
                 script = (
@@ -186,14 +187,6 @@ class VenvExecutor:
                         capture_output=True,
                         text=True
                     )
-                    # print("Watching")
-                    # print(f"Process return code: {process.returncode}")
-                    # print(f"Process stderr: {process.stderr}")
-                    # print(f"Temp Path: {temp_dir}")
-                    # print(f"Python Path: {self.python_path}")
-                    # print(f"Script Path: {script_path}")
-                    # print(f"Output path exists: {output_path.exists()}")
-                    # print(f"Error path exists: {error_path.exists()}")
 
                     if process.returncode == 0:
                         with open(output_path, 'rb') as f:
