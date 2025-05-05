@@ -1,0 +1,11 @@
+include README.md
+include LICENSE
+recursive-include code_executor_py *.py
+prune venv
+prune .venv
+prune tests
+global-exclude *.py[cod]
+global-exclude pycache
+global-exclude *.so
+global-exclude .DS_Store
+

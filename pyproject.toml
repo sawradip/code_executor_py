@@ -19,12 +19,24 @@ classifiers = [
 ]
 # Start of Selection
 dependencies = [
-  # "langchain_core>=0.3",
+  "langchain_core>=0.3",
   "pydantic>=2.0.0",
   "fastapi>=0.115.12",
   "uvicorn>=0.34.2"
 ]
 # End of Selection
+
+[tool.hatch.build]
+exclude = [
+  "venv",
+  ".venv",
+  "*.pyc",
+  "__pycache__",
+  "dist",
+  "build",
+  ".env",
+  ".git"
+]
 
 [project.urls]
 homepage = "https://github.com/sawradip/code_executor_py"

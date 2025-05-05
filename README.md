@@ -2,7 +2,6 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/code-executor-py.svg)](https://pypi.org/project/code-executor-py/)
 [![Downloads](https://img.shields.io/pypi/dm/code-executor-py.svg)](https://pypi.org/project/code-executor-py/)
-[![Python versions](https://img.shields.io/pypi/pyversions/code-executor-py.svg)](https://pypi.org/project/code-executor-py/)
 [![License](https://img.shields.io/github/license/sawradip/code_executor_py.svg)](https://github.com/sawradip/code_executor_py/blob/main/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/sawradip/code_executor_py.svg)](https://github.com/sawradip/code_executor_py/stargazers)
 
