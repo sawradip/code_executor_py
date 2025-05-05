@@ -1,6 +1,7 @@
 import os
 import re
 import ast
+import glob
 import venv
 import pickle
 import tempfile
@@ -55,17 +56,41 @@ class VenvExecutor:
     def install_packages(self, *packages: str):
         """Install packages in the virtual environment."""
 
-        print(f"Installing {chr(10).join(packages)}")
-        subprocess.run(
-            [str(self.python_path), '-m', 'pip', 'install', *packages],
-            check=True, capture_output=True
-        )
+        for package in packages:
+            print(f"Installing - {package}")
+            subprocess.run(
+                [str(self.python_path), '-m', 'pip', 'install', package],
+                check=True, capture_output=True
+            )
 
     def _extract_imports(self, code: str) -> List[str]:
-        """Extract all import statements using regex."""
-        import_pattern = r'^(?:from\s+([\w.]+)|import\s+([\w.]+)(?:\s+as\s+[\w.]+)?)'
-        matches = re.finditer(import_pattern, code, re.MULTILINE)
-        return list({(match.group(1) or match.group(2)).split('.')[0] for match in matches})
+        """Extract all import statements using regex.
+        
+        Handles cases like:
+        - import x
+        - from x import y 
+        - import x as z
+        - import x.y as z
+        - from x.y import z
+        - import x, y, z
+        - from x import (y, z)
+        """
+        import_patterns = [
+            r'^import\s+([\w.]+(?:\s*,\s*[\w.]+)*)',  # import x or import x, y, z
+            r'^from\s+([\w.]+)\s+import\s+(?:\([\s\w,]+\)|[\s\w,]+)'  # from x import y or from x import (y, z)
+        ]
+        
+        imports = set()
+        for pattern in import_patterns:
+            matches = re.finditer(pattern, code, re.MULTILINE)
+            for match in matches:
+                # Handle comma-separated imports
+                for imp in match.group(1).split(','):
+                    # Get base package name before any dots
+                    base_pkg = imp.strip().split('.')[0]
+                    imports.add(base_pkg)
+                    
+        return list(imports)
 
     def _get_package_name(self, import_name: str) -> str:
         """Get correct package name for pip installation."""
@@ -92,8 +117,58 @@ class VenvExecutor:
                 return False
         return False
 
+    def _get_uninstalled_deps(self, package_names):
+        # Get the site-packages directory path
+        if os.name == 'nt':  # Windows
+            site_packages = os.path.join(self.venv_dir, 'Lib', 'site-packages')
+        else:  # Unix/Linux/Mac
+            # Find the Python version directory (like lib/python3.8)
+            lib_dir = os.path.join(self.venv_dir, 'lib')
+            if not os.path.exists(lib_dir):
+                return package_names
+                
+            python_dirs = [d for d in os.listdir(lib_dir) if d.startswith('python')]
+            if not python_dirs:
+                return package_names
+                
+            site_packages = os.path.join(lib_dir, python_dirs[0], 'site-packages')
+
+        builtin_modules = ['itertools', 'os', 'sys', 're', 'math', 'datetime']
+        # if package_name in builtin_modules:
+        #     return False  # These are built-in, not venv-installed 
+
+        uninstalled = []
+        
+        for package_name in package_names:
+            if package_name in builtin_modules:
+                continue
+            # Check various package installation patterns
+            package_pypi_name = self._get_package_name(package_name)
+
+            package_dir = os.path.join(site_packages, package_name)
+            package_egg = os.path.join(site_packages, f"{package_pypi_name}.egg-info")
+            package_dist = os.path.join(site_packages,
+                                      f"{package_pypi_name.replace('-', '_')}-*-info")
+            
+            # If none of the patterns match, package is not installed
+            if not (
+                os.path.exists(package_dir) or
+                os.path.exists(package_egg) or
+                glob.glob(package_dist)
+            ):
+                uninstalled.append(package_pypi_name)
+                
+        return uninstalled
+
     def create_executable(self, function_code: str, function_name: Optional[str] = None) -> callable:
         """Create an executable function that runs in the venv."""
+
+        all_dependencies = self._extract_imports(function_code)
+
+        # The names have been converted to PyPi versions
+        uninstalled_dependencies = self._get_uninstalled_deps(all_dependencies)
+
+        self.install_packages(*uninstalled_dependencies)
 
         if not function_name:
             # Find the function that isn't called by others (except in __main__)
@@ -112,11 +187,7 @@ class VenvExecutor:
             if not uncalled:
                 raise ValueError("Could not determine top-level function")
             function_name = uncalled[-1]
-            # print(function_nodes)
 
-            # print(function_calls)
-
-            # print(uncalled)
 
         def execute_in_venv(*args, **kwargs) -> Any:
             with (
@@ -181,7 +252,9 @@ class VenvExecutor:
                 with open(script_path, 'w') as f:
                     f.write(script)
                 
-                while True:
+                trial_counter = 0
+                while trial_counter <= len(all_dependencies):
+                    trial_counter += 1
                     process = subprocess.run(
                         [str(self.python_path), str(script_path)],
                         capture_output=True,
@@ -198,15 +271,22 @@ class VenvExecutor:
                             with open(error_path, 'rb') as f:
                                 error_info = pickle.load(f)
                             
-                            if (error_info['type'] in ['ModuleNotFoundError', 'ImportError']) and self._handle_import_error(error_info['message']):
-                                continue
-                                
-                            error_type = eval(error_info['type'])
-                            error = error_type(error_info['message'])
-                            error.original_traceback = error_info['traceback']
-                            raise error
+                            if (error_info['type'] in ['ModuleNotFoundError', 'ImportError']):
+                                if self._handle_import_error(error_info['message']) and (trial_counter == len(all_dependencies)):
+                                    continue
+                                else:
+                                    error_type = eval(error_info['type'])
+                                    error = error_type(error_info['message'])
+                                    error.original_traceback = error_info['traceback']
+                                    raise error
+                            else:
+                                error_type = eval(error_info['type'])
+                                error = error_type(error_info['message'])
+                                error.original_traceback = error_info['traceback']
+                                raise error
                         
                         raise RuntimeError(f"Execution failed: {process.stderr}")
+                    
 
         def wrapper(*args, **kwargs):
             return execute_in_venv(*args, **kwargs)

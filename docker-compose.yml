@@ -1,5 +1,5 @@
 services:
-  code-executor:
+  code-executor-py:
     image: python:3.9-slim
     container_name: code-executor-service
     restart: unless-stopped
