@@ -43,16 +43,18 @@ class ExecuteResponse(BaseModel):
 
 class RemoteExecutorServer:
     def __init__(self,
-                 host: str = "0.0.0.0",
+                 host: str = "0.0.0.0", 
                  port: int = 8099,
                  venv_path: Optional[Union[str, Path]] = None,
-                 base_packages: Optional[list[str]] = None):
+                 base_packages: Optional[list[str]] = None,
+                 llm = None):
         self.host = host
         self.port = port
         self.app = FastAPI()
         self.venv_executor = VenvExecutor(
             venv_path=venv_path,
-            base_packages=base_packages
+            base_packages=base_packages,
+            llm=llm
         )
         self.functions = {}
 

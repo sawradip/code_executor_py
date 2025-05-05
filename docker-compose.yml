@@ -5,19 +5,19 @@ services:
     restart: unless-stopped
     ports:
       - "8099:8099"
-    volumes:
-      - venv-data:/app/venvs
+    # volumes:
+    #   - venv-data:/app/venvs
     working_dir: /app
     environment:
       - PYTHONUNBUFFERED=1
       - HOST=0.0.0.0
       - PORT=8099
       - DEBUG=0
-      - BASE_PACKAGES=numpy,pandas
-      - VENV_PATH=/app/venvs
+      # - BASE_PACKAGES=numpy,pandas
+      # - VENV_PATH=/app/venvs
     command: >
-      bash -c "pip install --no-cache-dir code-executor-py && python -c \"from code_executor_py import RemoteExecutorServer; import os; host = os.environ.get('HOST', '0.0.0.0'); port = int(os.environ.get('PORT', '8099')); venv_path = os.environ.get('VENV_PATH', '/app/venvs'); base_packages_str = os.environ.get('BASE_PACKAGES', 'numpy,pandas'); base_packages = [pkg.strip() for pkg in base_packages_str.split(',')]; server = RemoteExecutorServer(host=host, port=port, venv_path=venv_path, base_packages=base_packages); server.run()\""
+      bash -c "pip install --no-cache-dir code-executor-py && python -c \"from code_executor_py import RemoteExecutorServer; import os; host = os.environ.get('HOST', '0.0.0.0'); port = int(os.environ.get('PORT', '8099')); server = RemoteExecutorServer(host=host, port=port); server.run()\""
 
-volumes:
-  venv-data:
-    name: code-executor-venvs
+# volumes:
+#   venv-data:
+#     name: code-executor-venvs

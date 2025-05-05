@@ -14,12 +14,31 @@ from langchain_core.messages import HumanMessage
 
 class VenvExecutor:
     PACKAGE_MAPPING = {
-        'sklearn': 'scikit-learn',
-        'PIL': 'Pillow',
-        'cv2': 'opencv-python',
-        'tf': 'tensorflow',
-        'px': 'plotly_express',
-        'plt': 'matplotlib',
+        'PIL': 'Pillow',                     # Python Imaging Library vs Pillow
+        'bs4': 'beautifulsoup4',             # BeautifulSoup module vs package name
+        'cv2': 'opencv-python',              # OpenCV module vs package name
+        'sklearn': 'scikit-learn',           # Short module name vs hyphenated package
+        'yaml': 'pyyaml',                    # YAML module vs package name with prefix
+        'dateutil': 'python-dateutil',       # Module vs package name with prefix
+        'jwt': 'pyjwt',                      # JWT module vs package name with prefix
+        'docx': 'python-docx',               # Word document module vs package name
+        'graphviz': 'python-graphviz',       # Graph visualization module vs package
+        'psycopg2': 'psycopg2-binary',       # PostgreSQL adapter vs binary distribution
+        'sqlite3': 'pysqlite3',              # Standard library name vs PyPI package
+        'cassandra': 'cassandra-driver',     # Cassandra module vs driver package
+        'mx': 'mxnet',                       # Common module alias vs full package name
+        'dotenv': 'python-dotenv',           # Environment variable module vs package
+        'odf': 'odfpy',                      # OpenDocument Format module vs package
+        'cairo': 'pycairo',                  # Cairo graphics module vs Python binding
+        'gi': 'PyGObject',                   # GObject Introspection module vs package
+        'lz4': 'python-lz4',                 # Compression module vs package with prefix
+        'msgpack': 'msgpack-python',         # MessagePack module vs Python package
+        'magic': 'python-magic',             # File type detection module vs package
+        'MySQLdb': 'mysqlclient',            # Legacy MySQL module vs modern client
+        'zmq': 'pyzmq',                      # ZeroMQ module vs Python binding
+        'googleapiclient': 'google-api-python-client', # Google API module vs package
+        'skimage': 'scikit-image',           # Image processing library
+        'wx': 'wxPython',                    # GUI toolkit
     }
 
     def __init__(self,
