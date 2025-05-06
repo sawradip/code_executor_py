@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "code-executor-py"
-version = "0.2.2"
+version = "0.2.4"
 authors = [
   { name = "Sawradip Saha", email = "sawradip0@gmail.com" },
 ]
@@ -22,7 +22,8 @@ dependencies = [
   "langchain_core>=0.3",
   "pydantic>=2.0.0",
   "fastapi>=0.115.12",
-  "uvicorn>=0.34.2"
+  "uvicorn>=0.34.2",
+  "pandas>=2.0.0"
 ]
 # End of Selection
 

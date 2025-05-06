@@ -3,10 +3,10 @@ import pickle
 import base64
 import requests
 from pathlib import Path
-from typing import Optional, Union
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
+import typing as t
 
 from .venv_executor import VenvExecutor
 
@@ -29,12 +29,12 @@ def deserialize_data(string):
 
 class CodeRequest(BaseModel):
     code: str
-    function_name: Optional[str] = None
+    function_name: t.Optional[str] = None
 
 
 class ExecuteRequest(BaseModel):
     function_id: str
-    function_params: str  # Compressed, serialized data
+    function_params: t.Optional[str] = None  # Compressed, serialized data
 
 
 class ExecuteResponse(BaseModel):
@@ -45,9 +45,9 @@ class RemoteExecutorServer:
     def __init__(self,
                  host: str = "0.0.0.0", 
                  port: int = 8099,
-                 venv_path: Optional[Union[str, Path]] = None,
-                 base_packages: Optional[list[str]] = None,
-                 llm = None):
+                 venv_path: t.Optional[t.Union[str, Path]] = None,
+                 base_packages: t.Optional[list[str]] = None,
+                 llm=None):
         self.host = host
         self.port = port
         self.app = FastAPI()
@@ -85,8 +85,11 @@ class RemoteExecutorServer:
                     detail="Function not found"
                 )
 
-            params = deserialize_data(request.function_params)
-            args, kwargs = params["function_args"], params["function_kwargs"]
+            if request.function_params:
+                params = deserialize_data(request.function_params)
+                args, kwargs = params["function_args"], params["function_kwargs"]
+            else:
+                args, kwargs = list(), dict()
             # if isinstance(params, tuple) and len(params) == 2:
             #     args, kwargs = params
             #     result = func(*args, **kwargs)
@@ -110,7 +113,7 @@ class RemoteExecutor:
     def create_executable(
         self,
         function_code: str,
-        function_name: Optional[str] = None
+        function_name: t.Optional[str] = None
     ) -> callable:
         """Create an executable function that runs on the remote server."""
 
