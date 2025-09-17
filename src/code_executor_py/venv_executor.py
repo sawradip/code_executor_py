@@ -1,59 +1,65 @@
-import os
-import re
 import ast
-import glob
-import venv
-import pickle
-import tempfile
-import subprocess
 import contextlib
+import glob
+import os
+import pickle
+import re
+import subprocess
+import sys
+import tempfile
+import venv
 from pathlib import Path
-from typing import Any, Optional, Union, List
+from typing import Any, List, Optional, Union
+
 from langchain_core.messages import HumanMessage
 
 
 class VenvExecutor:
     PACKAGE_MAPPING = {
-        'PIL': 'Pillow',                     # Python Imaging Library vs Pillow
-        'bs4': 'beautifulsoup4',             # BeautifulSoup module vs package name
-        'cv2': 'opencv-python',              # OpenCV module vs package name
-        'sklearn': 'scikit-learn',           # Short module name vs hyphenated package
-        'yaml': 'pyyaml',                    # YAML module vs package name with prefix
-        'dateutil': 'python-dateutil',       # Module vs package name with prefix
-        'jwt': 'pyjwt',                      # JWT module vs package name with prefix
-        'docx': 'python-docx',               # Word document module vs package name
-        'graphviz': 'python-graphviz',       # Graph visualization module vs package
-        'psycopg2': 'psycopg2-binary',       # PostgreSQL adapter vs binary distribution
-        'sqlite3': 'pysqlite3',              # Standard library name vs PyPI package
-        'cassandra': 'cassandra-driver',     # Cassandra module vs driver package
-        'mx': 'mxnet',                       # Common module alias vs full package name
-        'dotenv': 'python-dotenv',           # Environment variable module vs package
-        'odf': 'odfpy',                      # OpenDocument Format module vs package
-        'cairo': 'pycairo',                  # Cairo graphics module vs Python binding
-        'gi': 'PyGObject',                   # GObject Introspection module vs package
-        'lz4': 'python-lz4',                 # Compression module vs package with prefix
-        'msgpack': 'msgpack-python',         # MessagePack module vs Python package
-        'magic': 'python-magic',             # File type detection module vs package
-        'MySQLdb': 'mysqlclient',            # Legacy MySQL module vs modern client
-        'zmq': 'pyzmq',                      # ZeroMQ module vs Python binding
-        'googleapiclient': 'google-api-python-client', # Google API module vs package
-        'skimage': 'scikit-image',           # Image processing library
-        'wx': 'wxPython',                    # GUI toolkit
+        "PIL": "Pillow",  # Python Imaging Library vs Pillow
+        "bs4": "beautifulsoup4",  # BeautifulSoup module vs package name
+        "cv2": "opencv-python",  # OpenCV module vs package name
+        "sklearn": "scikit-learn",  # Short module name vs hyphenated package
+        "yaml": "pyyaml",  # YAML module vs package name with prefix
+        "dateutil": "python-dateutil",  # Module vs package name with prefix
+        "jwt": "pyjwt",  # JWT module vs package name with prefix
+        "docx": "python-docx",  # Word document module vs package name
+        "graphviz": "python-graphviz",  # Graph visualization module vs package
+        "psycopg2": "psycopg2-binary",  # PostgreSQL adapter vs binary distribution
+        "sqlite3": "pysqlite3",  # Standard library name vs PyPI package
+        "cassandra": "cassandra-driver",  # Cassandra module vs driver package
+        "mx": "mxnet",  # Common module alias vs full package name
+        "dotenv": "python-dotenv",  # Environment variable module vs package
+        "odf": "odfpy",  # OpenDocument Format module vs package
+        "cairo": "pycairo",  # Cairo graphics module vs Python binding
+        "gi": "PyGObject",  # GObject Introspection module vs package
+        "lz4": "python-lz4",  # Compression module vs package with prefix
+        "msgpack": "msgpack-python",  # MessagePack module vs Python package
+        "magic": "python-magic",  # File type detection module vs package
+        "MySQLdb": "mysqlclient",  # Legacy MySQL module vs modern client
+        "zmq": "pyzmq",  # ZeroMQ module vs Python binding
+        "googleapiclient": "google-api-python-client",  # Google API module vs package
+        "skimage": "scikit-image",  # Image processing library
+        "wx": "wxPython",  # GUI toolkit
     }
 
-    def __init__(self,
-                 llm=None,
-                 debug_mode=False,
-                 venv_path: Optional[Union[str, Path]] = None,
-                 base_packages: Optional[list[str]] = None):
-        self.venv_dir = Path(venv_path or './.venv')
-        self.base_packages = base_packages or ['numpy', 'pandas']
+    def __init__(
+        self,
+        llm=None,
+        debug_mode=False,
+        venv_path: Optional[Union[str, Path]] = None,
+        base_packages: Optional[list[str]] = None,
+    ):
+        self.venv_dir = Path(venv_path or "./.venv")
+        self.base_packages = base_packages or ["numpy", "pandas"]
         self.llm = llm
         self.debug_mode = debug_mode
 
-        self.python_path = self.venv_dir / (
-            'Scripts' if os.name == 'nt' else 'bin'
-            ) / ('python' + ('.exe' if os.name == 'nt' else ''))
+        self.python_path = (
+            self.venv_dir
+            / ("Scripts" if os.name == "nt" else "bin")
+            / ("python" + (".exe" if os.name == "nt" else ""))
+        )
 
         if not self.venv_dir.exists():
             self._create_venv()
@@ -64,9 +70,9 @@ class VenvExecutor:
 
         # Ensure pip is installed
         subprocess.run(
-            [str(self.python_path), '-m', 'ensurepip', '--upgrade'],
+            [str(self.python_path), "-m", "ensurepip", "--upgrade"],
             check=True,
-            capture_output=True
+            capture_output=True,
         )
 
         if self.base_packages:
@@ -78,16 +84,17 @@ class VenvExecutor:
         for package in packages:
             print(f"Installing - {package}")
             subprocess.run(
-                [str(self.python_path), '-m', 'pip', 'install', package],
-                check=True, capture_output=True
+                [str(self.python_path), "-m", "pip", "install", package],
+                check=True,
+                capture_output=True,
             )
 
     def _extract_imports(self, code: str) -> List[str]:
         """Extract all import statements using regex.
-        
+
         Handles cases like:
         - import x
-        - from x import y 
+        - from x import y
         - import x as z
         - import x.y as z
         - from x.y import z
@@ -95,20 +102,20 @@ class VenvExecutor:
         - from x import (y, z)
         """
         import_patterns = [
-            r'^import\s+([\w.]+(?:\s*,\s*[\w.]+)*)',  # import x or import x, y, z
-            r'^from\s+([\w.]+)\s+import\s+(?:\([\s\w,]+\)|[\s\w,]+)'  # from x import y or from x import (y, z)
+            r"^import\s+([\w.]+(?:\s*,\s*[\w.]+)*)",  # import x or import x, y, z
+            r"^from\s+([\w.]+)\s+import\s+(?:\([\s\w,]+\)|[\s\w,]+)",  # from x import y or from x import (y, z)
         ]
-        
+
         imports = set()
         for pattern in import_patterns:
             matches = re.finditer(pattern, code, re.MULTILINE)
             for match in matches:
                 # Handle comma-separated imports
-                for imp in match.group(1).split(','):
+                for imp in match.group(1).split(","):
                     # Get base package name before any dots
-                    base_pkg = imp.strip().split('.')[0]
+                    base_pkg = imp.strip().split(".")[0]
                     imports.add(base_pkg)
-                    
+
         return list(imports)
 
     def _get_package_name(self, import_name: str) -> str:
@@ -125,7 +132,7 @@ class VenvExecutor:
         """Handle import errors by installing missing packages."""
         match = re.search(r"No module named '([\w.]+)'", error_msg)
         if match:
-            missing_module = match.group(1).split('.')[0]
+            missing_module = match.group(1).split(".")[0]
             package_name = self._get_package_name(missing_module)
             try:
                 print(f"Attempting to install missing package: {package_name}")
@@ -138,26 +145,24 @@ class VenvExecutor:
 
     def _get_uninstalled_deps(self, package_names):
         # Get the site-packages directory path
-        if os.name == 'nt':  # Windows
-            site_packages = os.path.join(self.venv_dir, 'Lib', 'site-packages')
+        if os.name == "nt":  # Windows
+            site_packages = os.path.join(self.venv_dir, "Lib", "site-packages")
         else:  # Unix/Linux/Mac
             # Find the Python version directory (like lib/python3.8)
-            lib_dir = os.path.join(self.venv_dir, 'lib')
+            lib_dir = os.path.join(self.venv_dir, "lib")
             if not os.path.exists(lib_dir):
                 return package_names
-                
-            python_dirs = [d for d in os.listdir(lib_dir) if d.startswith('python')]
+
+            python_dirs = [d for d in os.listdir(lib_dir) if d.startswith("python")]
             if not python_dirs:
                 return package_names
-                
-            site_packages = os.path.join(lib_dir, python_dirs[0], 'site-packages')
 
-        builtin_modules = ['itertools', 'os', 'sys', 're', 'math', 'datetime']
-        # if package_name in builtin_modules:
-        #     return False  # These are built-in, not venv-installed 
+            site_packages = os.path.join(lib_dir, python_dirs[0], "site-packages")
+
+            builtin_modules = sys.builtin_module_names
 
         uninstalled = []
-        
+
         for package_name in package_names:
             if package_name in builtin_modules:
                 continue
@@ -166,20 +171,23 @@ class VenvExecutor:
 
             package_dir = os.path.join(site_packages, package_name)
             package_egg = os.path.join(site_packages, f"{package_pypi_name}.egg-info")
-            package_dist = os.path.join(site_packages,
-                                      f"{package_pypi_name.replace('-', '_')}-*-info")
-            
+            package_dist = os.path.join(
+                site_packages, f"{package_pypi_name.replace('-', '_')}-*-info"
+            )
+
             # If none of the patterns match, package is not installed
             if not (
-                os.path.exists(package_dir) or
-                os.path.exists(package_egg) or
-                glob.glob(package_dist)
+                os.path.exists(package_dir)
+                or os.path.exists(package_egg)
+                or glob.glob(package_dist)
             ):
                 uninstalled.append(package_pypi_name)
-                
+
         return uninstalled
 
-    def create_executable(self, function_code: str, function_name: Optional[str] = None) -> callable:
+    def create_executable(
+        self, function_code: str, function_name: Optional[str] = None
+    ) -> callable:
         """Create an executable function that runs in the venv."""
 
         all_dependencies = self._extract_imports(function_code)
@@ -192,8 +200,11 @@ class VenvExecutor:
         if not function_name:
             # Find the function that isn't called by others (except in __main__)
             tree = ast.parse(function_code)
-            function_nodes = {node.name: node for node in tree.body
-                                if isinstance(node, ast.FunctionDef)}
+            function_nodes = {
+                node.name: node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef)
+            }
 
             # Collect function calls within function bodies only
             function_calls = set()
@@ -207,7 +218,6 @@ class VenvExecutor:
                 raise ValueError("Could not determine top-level function")
             function_name = uncalled[-1]
 
-
         def execute_in_venv(*args, **kwargs) -> Any:
             with (
                 contextlib.nullcontext(tempfile.mkdtemp())
@@ -216,21 +226,21 @@ class VenvExecutor:
             ) as temp_dir:
                 # with tempfile.TemporaryDirectory() as temp_dir:
                 temp_dir = Path(temp_dir)
-                input_path = temp_dir / 'input.pkl'
-                output_path = temp_dir / 'output.pkl'
-                error_path = temp_dir / 'error.pkl'
-                
+                input_path = temp_dir / "input.pkl"
+                output_path = temp_dir / "output.pkl"
+                error_path = temp_dir / "error.pkl"
+
                 input_data = [args, kwargs]
 
                 if input_data is not None:
-                    with open(input_path, 'wb') as f:
+                    with open(input_path, "wb") as f:
                         pickle.dump(input_data, f)
 
                 # Extract imports and function definitions
                 tree = ast.parse(function_code)
                 imports = []
                 functions = []
-                
+
                 for node in tree.body:
                     if isinstance(node, (ast.Import, ast.ImportFrom)):
                         imports.append(ast.unparse(node))
@@ -238,9 +248,10 @@ class VenvExecutor:
                         functions.append(ast.unparse(node))
 
                 # Add proper indentation
-                indented_imports = ['    ' + imp for imp in imports]
-                indented_functions = ['    ' + line for func in functions
-                                    for line in func.split('\n')]
+                indented_imports = ["    " + imp for imp in imports]
+                indented_functions = [
+                    "    " + line for func in functions for line in func.split("\n")
+                ]
 
                 script = (
                     "import pickle\n"
@@ -267,45 +278,49 @@ class VenvExecutor:
                     "        pickle.dump(error_info, f, protocol=4)\n"
                     "    sys.exit(1)\n"
                 )
-                script_path = temp_dir / 'script.py'
-                with open(script_path, 'w') as f:
+                script_path = temp_dir / "script.py"
+                with open(script_path, "w") as f:
                     f.write(script)
-                
+
                 trial_counter = 0
                 while trial_counter <= len(all_dependencies):
                     trial_counter += 1
                     process = subprocess.run(
                         [str(self.python_path), str(script_path)],
                         capture_output=True,
-                        text=True
+                        text=True,
                     )
 
                     if process.returncode == 0:
-                        with open(output_path, 'rb') as f:
+                        with open(output_path, "rb") as f:
                             return pickle.load(f)
-                        
+
                     else:
                         print(error_path)
                         if error_path.exists():
-                            with open(error_path, 'rb') as f:
+                            with open(error_path, "rb") as f:
                                 error_info = pickle.load(f)
-                            
-                            if (error_info['type'] in ['ModuleNotFoundError', 'ImportError']):
-                                if self._handle_import_error(error_info['message']) and (trial_counter == len(all_dependencies)):
+
+                            if error_info["type"] in [
+                                "ModuleNotFoundError",
+                                "ImportError",
+                            ]:
+                                if self._handle_import_error(
+                                    error_info["message"]
+                                ) and (trial_counter == len(all_dependencies)):
                                     continue
                                 else:
-                                    error_type = eval(error_info['type'])
-                                    error = error_type(error_info['message'])
-                                    error.original_traceback = error_info['traceback']
+                                    error_type = eval(error_info["type"])
+                                    error = error_type(error_info["message"])
+                                    error.original_traceback = error_info["traceback"]
                                     raise error
                             else:
-                                error_type = eval(error_info['type'])
-                                error = error_type(error_info['message'])
-                                error.original_traceback = error_info['traceback']
+                                error_type = eval(error_info["type"])
+                                error = error_type(error_info["message"])
+                                error.original_traceback = error_info["traceback"]
                                 raise error
-                        
+
                         raise RuntimeError(f"Execution failed: {process.stderr}")
-                    
 
         def wrapper(*args, **kwargs):
             return execute_in_venv(*args, **kwargs)
