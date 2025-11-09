@@ -18,7 +18,11 @@ A powerful and flexible Python module for secure code execution in isolated envi
   - Client-server architecture
   - Secure data serialization
   - Network-isolated execution
-  
+ 
+- **Scoped Environment Variables**
+  - Pass per-function environment values during `create_executable`
+  - Variables are available only to that execution context
+
 - **Smart Package Management**
   - Automatically resolves import statements to package names
   - Maps common aliases to correct package names (e.g., 'sklearn' → 'scikit-learn')
@@ -50,7 +54,10 @@ def process_data(data_df):
 
 # Create executor and compile function
 executor = VenvExecutor()
-process_data = executor.create_executable(func_code)
+process_data = executor.create_executable(
+    func_code,
+    env_vars={"DATA_API_KEY": "abc123"}
+)
 
 # Execute function with data
 test_data = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
@@ -83,7 +90,10 @@ def add_numbers(a: int, b: int) -> int:
 """
 
 # Create executable function
-add_numbers = executor.create_executable(func_code)
+add_numbers = executor.create_executable(
+    func_code,
+    env_vars={"REMOTE_SECRET": "secret-value"}
+)
 
 # Execute remotely
 result = add_numbers(5, 3)
@@ -107,6 +117,31 @@ executor = VenvExecutor(
 # The executor can now ask the LLM for the correct package name
 # when encountering unknown imports
 ```
+
+### Scoped Environment Variables
+
+```python
+from code_executor_py import VenvExecutor
+
+executor = VenvExecutor()
+
+secret_function = executor.create_executable(
+    """
+import os
+
+
+def get_secret():
+    return os.environ.get("MY_SECRET")
+""",
+    function_name="get_secret",
+    env_vars={"MY_SECRET": "top-secret"}
+)
+
+print(secret_function())  # -> "top-secret"
+```
+
+Environment variables provided in `env_vars` are injected only into the spawned
+subprocess and never touch the parent process.
 
 ### Custom Base Packages
 

@@ -8,7 +8,7 @@ import tempfile
 import subprocess
 import contextlib
 from pathlib import Path
-from typing import Any, Optional, Union, List
+from typing import Any, Optional, Union, List, Dict
 from langchain_core.messages import HumanMessage
 
 
@@ -179,7 +179,7 @@ class VenvExecutor:
                 
         return uninstalled
 
-    def create_executable(self, function_code: str, function_name: Optional[str] = None) -> callable:
+    def create_executable(self, function_code: str, function_name: Optional[str] = None, env_vars: Optional[Dict[str, str]] = None) -> callable:
         """Create an executable function that runs in the venv."""
 
         all_dependencies = self._extract_imports(function_code)
@@ -207,6 +207,8 @@ class VenvExecutor:
                 raise ValueError("Could not determine top-level function")
             function_name = uncalled[-1]
 
+
+        sanitized_env_vars = {str(key): "" if value is None else str(value) for key, value in env_vars.items()} if env_vars else None
 
         def execute_in_venv(*args, **kwargs) -> Any:
             with (
@@ -274,8 +276,13 @@ class VenvExecutor:
                 trial_counter = 0
                 while trial_counter <= len(all_dependencies):
                     trial_counter += 1
+                    process_env = os.environ.copy()
+                    if sanitized_env_vars:
+                        process_env.update(sanitized_env_vars)
+
                     process = subprocess.run(
                         [str(self.python_path), str(script_path)],
+                        env=process_env,
                         capture_output=True,
                         text=True
                     )

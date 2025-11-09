@@ -1,6 +1,8 @@
 import zlib
 import pickle
 import base64
+import hashlib
+import json
 import requests
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
@@ -30,6 +32,7 @@ def deserialize_data(string):
 class CodeRequest(BaseModel):
     code: str
     function_name: t.Optional[str] = None
+    env_vars: t.Optional[t.Dict[str, str]] = None
 
 
 class ExecuteRequest(BaseModel):
@@ -61,14 +64,22 @@ class RemoteExecutorServer:
         @self.app.post("/create_function")
         async def create_function(request: CodeRequest):
             try:
-                code_hash = str(hash(request.code))
+                env_dict = dict(sorted((request.env_vars or {}).items()))
+                hash_input = json.dumps(
+                    [request.code, request.function_name, env_dict],
+                    sort_keys=True
+                ).encode("utf-8")
+                code_hash = hashlib.sha256(hash_input).hexdigest()
 
                 if code_hash in self.functions:
                     return {"function_id": code_hash}
 
+                # Create a copy of env_vars to avoid reference issues
+                env_vars_copy = dict(request.env_vars) if request.env_vars else None
                 func = self.venv_executor.create_executable(
                     request.code,
-                    request.function_name
+                    request.function_name,
+                    env_vars=env_vars_copy
                 )
                 self.functions[code_hash] = func
                 return {"function_id": code_hash}
@@ -113,13 +124,14 @@ class RemoteExecutor:
     def create_executable(
         self,
         function_code: str,
-        function_name: t.Optional[str] = None
+        function_name: t.Optional[str] = None,
+        env_vars: t.Optional[t.Dict[str, str]] = None
     ) -> callable:
         """Create an executable function that runs on the remote server."""
 
         response = requests.post(
             f"{self.server_url}/create_function",
-            json={"code": function_code, "function_name": function_name}
+            json={"code": function_code, "function_name": function_name, "env_vars": env_vars}
         )
         response.raise_for_status()
         function_id = response.json()["function_id"]

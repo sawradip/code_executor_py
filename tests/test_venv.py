@@ -1,3 +1,4 @@
+import os
 import pytest
 # import pandas as pd
 from code_executor_py import VenvExecutor
@@ -62,6 +63,62 @@ def process_data(data_df):
     # Assert that the result matches the expected output
     pd.testing.assert_frame_equal(result, expected_result)
 
+
+
+    
+def test_scoped_env_vars(tmp_path):
+    executor = VenvExecutor(
+        venv_path=tmp_path / "venv_env_vars",
+        base_packages=[]
+    )
+
+    func_code = """
+import os
+
+
+def read_secret():
+    return os.environ.get("TEST_SECRET")
+"""
+
+    read_secret = executor.create_executable(
+        func_code,
+        function_name="read_secret",
+        env_vars={"TEST_SECRET": "super-secret"}
+    )
+
+    assert read_secret() == "super-secret"
+    assert os.environ.get("TEST_SECRET") is None
+
+
+def test_env_vars_isolated_between_executables(tmp_path):
+    executor = VenvExecutor(
+        venv_path=tmp_path / "venv_env_isolation",
+        base_packages=[]
+    )
+
+    func_code = """
+import os
+
+
+def read_secret():
+    return os.environ.get("SHARED_SECRET")
+"""
+
+    first_reader = executor.create_executable(
+        func_code,
+        function_name="read_secret",
+        env_vars={"SHARED_SECRET": "first"}
+    )
+
+    second_reader = executor.create_executable(
+        func_code,
+        function_name="read_secret",
+        env_vars={"SHARED_SECRET": "second"}
+    )
+
+    assert first_reader() == "first"
+    assert second_reader() == "second"
+    assert os.environ.get("SHARED_SECRET") is None
 
 
     
