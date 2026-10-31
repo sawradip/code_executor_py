@@ -127,12 +127,14 @@ class RemoteExecutor:
         function_name: t.Optional[str] = None,
         env_vars: t.Optional[t.Dict[str, str]] = None
     ) -> callable:
-        """Create an executable function that runs on the remote server."""
+        """Create an executable function that runs on the remote server.
 
-        response = requests.post(
-            f"{self.server_url}/create_function",
-            json={"code": function_code, "function_name": function_name, "env_vars": env_vars}
-        )
+        Every call also sends the code, so a server with several replicas can run it on any of them.
+        """
+
+        source = {"code": function_code, "function_name": function_name, "env_vars": env_vars}
+
+        response = requests.post(f"{self.server_url}/create_function", json=source)
         response.raise_for_status()
         function_id = response.json()["function_id"]
 
@@ -152,6 +154,7 @@ class RemoteExecutor:
             response = requests.post(
                 f"{self.server_url}/execute",
                 json={
+                    **source,
                     "function_id": function_id,
                     "function_params": serialized_params
                 }
